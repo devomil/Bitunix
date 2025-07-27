@@ -1,0 +1,571 @@
+{
+  "name": "Conservative BitUnix Futures Risk Manager",
+  "description": "A comprehensive risk management system for BitUnix cryptocurrency futures trading with conservative leverage and safety-first approach",
+  "version": "1.0.0",
+  "replit_config": {
+    "language": "python",
+    "run": "python app.py",
+    "environment": "flask"
+  },
+  "project_structure": {
+    "files": [
+      {
+        "path": "app.py",
+        "description": "Main Flask application with web dashboard"
+      },
+      {
+        "path": "bitunix_client.py",
+        "description": "Complete BitUnix API client with all endpoints"
+      },
+      {
+        "path": "risk_manager.py",
+        "description": "Conservative risk management engine"
+      },
+      {
+        "path": "signal_analyzer.py",
+        "description": "Technical analysis and conservative signal generation"
+      },
+      {
+        "path": "portfolio_monitor.py",
+        "description": "Real-time portfolio and position monitoring"
+      },
+      {
+        "path": "emergency_stop.py",
+        "description": "Emergency stop and safety systems"
+      },
+      {
+        "path": "config/settings.py",
+        "description": "Configuration and safety parameters"
+      },
+      {
+        "path": "utils/indicators.py",
+        "description": "Technical indicators and market analysis tools"
+      },
+      {
+        "path": "utils/auth.py",
+        "description": "BitUnix API authentication and signature generation"
+      },
+      {
+        "path": "templates/dashboard.html",
+        "description": "Risk management dashboard interface"
+      },
+      {
+        "path": "static/css/style.css",
+        "description": "Dashboard styling"
+      },
+      {
+        "path": "static/js/dashboard.js",
+        "description": "Real-time dashboard updates"
+      },
+      {
+        "path": "requirements.txt",
+        "description": "Python dependencies"
+      },
+      {
+        "path": ".env",
+        "description": "Environment variables and API credentials"
+      }
+    ]
+  },
+  "dependencies": {
+    "python_packages": [
+      "requests==2.31.0",
+      "flask==2.3.2",
+      "pandas==2.0.3",
+      "numpy==1.24.3",
+      "websocket-client==1.6.1",
+      "python-dotenv==1.0.0",
+      "apscheduler==3.10.1",
+      "cryptography==41.0.7",
+      "hmac",
+      "hashlib",
+      "base64",
+      "json",
+      "time",
+      "datetime",
+      "logging"
+    ]
+  },
+  "environment_variables": {
+    "BITUNIX_API_KEY": "your_api_key_here",
+    "BITUNIX_SECRET_KEY": "your_secret_key_here",
+    "BITUNIX_PASSPHRASE": "your_passphrase_here",
+    "MAX_RISK_PERCENT": "1.5",
+    "MAX_LEVERAGE": "5",
+    "DAILY_LOSS_LIMIT": "3.0",
+    "MAX_POSITIONS": "3",
+    "MIN_RISK_REWARD": "2.0",
+    "FLASK_DEBUG": "True",
+    "FLASK_PORT": "5000"
+  },
+  "bitunix_api_endpoints": {
+    "base_urls": {
+      "futures": "https://fapi.bitunix.com",
+      "websocket": "wss://ws.bitunix.com"
+    },
+    "authentication": {
+      "headers": [
+        "api-key",
+        "sign",
+        "nonce", 
+        "timestamp",
+        "language",
+        "Content-Type"
+      ],
+      "signature_method": "HMAC-SHA256"
+    },
+    "market_data_endpoints": {
+      "get_depth": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/depth",
+        "params": ["symbol", "precision"],
+        "auth_required": false,
+        "description": "Get order book depth data"
+      },
+      "get_funding_rate": {
+        "method": "GET", 
+        "endpoint": "/api/v1/futures/funding-rate",
+        "params": ["symbol"],
+        "auth_required": false,
+        "description": "Get funding rate for a symbol"
+      },
+      "get_funding_rate_batch": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/funding-rate/batch",
+        "params": ["symbols"],
+        "auth_required": false,
+        "description": "Get funding rates for multiple symbols"
+      },
+      "get_kline": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/kline",
+        "params": ["symbol", "period", "startTime", "endTime"],
+        "auth_required": false,
+        "description": "Get candlestick/kline data"
+      },
+      "get_tickers": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/tickers",
+        "params": ["symbol"],
+        "auth_required": false,
+        "description": "Get ticker information"
+      },
+      "get_trading_pairs": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/trading-pairs",
+        "params": [],
+        "auth_required": false,
+        "description": "Get all available trading pairs"
+      }
+    },
+    "account_endpoints": {
+      "get_single_account": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/account",
+        "params": ["marginCoin"],
+        "auth_required": true,
+        "description": "Get account balance and information"
+      },
+      "adjust_position_margin": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/adjust-margin",
+        "params": ["symbol", "marginCoin", "amount", "type"],
+        "auth_required": true,
+        "description": "Adjust position margin"
+      },
+      "change_leverage": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/leverage",
+        "params": ["symbol", "marginCoin", "leverage"],
+        "auth_required": true,
+        "description": "Change leverage for a symbol"
+      },
+      "change_margin_mode": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/margin-mode",
+        "params": ["symbol", "marginCoin", "marginMode"],
+        "auth_required": true,
+        "description": "Change margin mode (cross/isolated)"
+      },
+      "change_position_mode": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/position-mode",
+        "params": ["marginCoin", "positionMode"],
+        "auth_required": true,
+        "description": "Change position mode (one-way/hedge)"
+      },
+      "get_leverage_and_margin_mode": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/leverage-margin-mode",
+        "params": ["marginCoin"],
+        "auth_required": true,
+        "description": "Get current leverage and margin mode settings"
+      }
+    },
+    "position_endpoints": {
+      "get_history_positions": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/history-positions",
+        "params": ["symbol", "marginCoin", "startTime", "endTime", "pageSize", "lastEndId"],
+        "auth_required": true,
+        "description": "Get historical positions"
+      },
+      "get_pending_positions": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/positions",
+        "params": ["symbol", "marginCoin"],
+        "auth_required": true,
+        "description": "Get current open positions"
+      },
+      "get_position_tiers": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/position-tiers",
+        "params": ["symbol", "marginCoin"],
+        "auth_required": true,
+        "description": "Get position tier information"
+      }
+    },
+    "tp_sl_endpoints": {
+      "place_tp_sl_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/plan-order",
+        "params": ["symbol", "marginCoin", "size", "side", "orderType", "triggerPrice", "executePrice"],
+        "auth_required": true,
+        "description": "Place take profit/stop loss order"
+      },
+      "place_position_tp_sl_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/position-tpsl",
+        "params": ["symbol", "marginCoin", "planType", "triggerPrice", "executePrice"],
+        "auth_required": true,
+        "description": "Place TP/SL for existing position"
+      },
+      "modify_tp_sl_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/modify-plan-order",
+        "params": ["orderId", "triggerPrice", "executePrice"],
+        "auth_required": true,
+        "description": "Modify TP/SL order"
+      },
+      "modify_position_tp_sl_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/modify-position-tpsl",
+        "params": ["symbol", "marginCoin", "planType", "triggerPrice", "executePrice"],
+        "auth_required": true,
+        "description": "Modify position TP/SL"
+      },
+      "cancel_tp_sl_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/cancel-plan-order",
+        "params": ["orderId"],
+        "auth_required": true,
+        "description": "Cancel TP/SL order"
+      },
+      "get_pending_tp_sl_order": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/plan-orders-pending",
+        "params": ["symbol", "marginCoin"],
+        "auth_required": true,
+        "description": "Get pending TP/SL orders"
+      },
+      "get_history_tp_sl_order": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/plan-orders-history",
+        "params": ["symbol", "marginCoin", "startTime", "endTime"],
+        "auth_required": true,
+        "description": "Get TP/SL order history"
+      }
+    },
+    "trade_endpoints": {
+      "place_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/place-order",
+        "params": ["symbol", "marginCoin", "size", "side", "orderType", "price", "timeInForce"],
+        "auth_required": true,
+        "description": "Place futures order"
+      },
+      "batch_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/batch-orders",
+        "params": ["orderData"],
+        "auth_required": true,
+        "description": "Place multiple orders in batch"
+      },
+      "modify_order": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/modify-order",
+        "params": ["orderId", "newSize", "newPrice"],
+        "auth_required": true,
+        "description": "Modify existing order"
+      },
+      "cancel_all_orders": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/cancel-all-orders",
+        "params": ["symbol", "marginCoin"],
+        "auth_required": true,
+        "description": "Cancel all orders for symbol"
+      },
+      "close_all_position": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/close-all-positions",
+        "params": ["marginCoin"],
+        "auth_required": true,
+        "description": "Close all positions"
+      },
+      "flash_close_position": {
+        "method": "POST",
+        "endpoint": "/api/v1/futures/close-position",
+        "params": ["symbol", "marginCoin", "holdSide"],
+        "auth_required": true,
+        "description": "Flash close specific position"
+      },
+      "get_pending_orders": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/orders-pending",
+        "params": ["symbol", "marginCoin"],
+        "auth_required": true,
+        "description": "Get pending orders"
+      },
+      "get_history_orders": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/orders-history",
+        "params": ["symbol", "marginCoin", "startTime", "endTime"],
+        "auth_required": true,
+        "description": "Get order history"
+      },
+      "get_order_detail": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/order-detail",
+        "params": ["orderId"],
+        "auth_required": true,
+        "description": "Get specific order details"
+      },
+      "get_history_trades": {
+        "method": "GET",
+        "endpoint": "/api/v1/futures/fills",
+        "params": ["symbol", "orderId", "startTime", "endTime"],
+        "auth_required": true,
+        "description": "Get trade history/fills"
+      }
+    },
+    "websocket_channels": {
+      "public_channels": [
+        {
+          "channel": "depth",
+          "description": "Order book depth updates",
+          "params": ["symbol", "precision"]
+        },
+        {
+          "channel": "kline",
+          "description": "Candlestick data updates",
+          "params": ["symbol", "period"]
+        },
+        {
+          "channel": "ticker",
+          "description": "Single ticker updates",
+          "params": ["symbol"]
+        },
+        {
+          "channel": "tickers",
+          "description": "All tickers updates",
+          "params": []
+        },
+        {
+          "channel": "trade",
+          "description": "Real-time trade data",
+          "params": ["symbol"]
+        },
+        {
+          "channel": "marketPrice",
+          "description": "Market price updates",
+          "params": ["symbol"]
+        }
+      ],
+      "private_channels": [
+        {
+          "channel": "account",
+          "description": "Account balance updates",
+          "auth_required": true
+        },
+        {
+          "channel": "positions",
+          "description": "Position updates",
+          "auth_required": true
+        },
+        {
+          "channel": "orders",
+          "description": "Order updates",
+          "auth_required": true
+        }
+      ]
+    }
+  },
+  "conservative_features": {
+    "risk_management": {
+      "max_leverage": 5,
+      "max_risk_per_trade": 1.5,
+      "daily_loss_limit": 3.0,
+      "max_open_positions": 3,
+      "min_risk_reward_ratio": 2.0,
+      "mandatory_stop_loss": true,
+      "position_size_calculator": "conservative",
+      "emergency_stop_triggers": [
+        "daily_loss_exceeded",
+        "api_connection_lost", 
+        "unexpected_volatility",
+        "margin_call_risk"
+      ]
+    },
+    "signal_generation": {
+      "min_confidence_level": 75,
+      "supported_pairs": ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+      "max_daily_signals": 3,
+      "signal_filters": [
+        "trend_confirmation",
+        "volume_validation",
+        "volatility_check",
+        "risk_reward_analysis"
+      ],
+      "technical_indicators": [
+        "RSI",
+        "MACD",
+        "Bollinger_Bands",
+        "ATR",
+        "EMA",
+        "Volume_Analysis"
+      ]
+    },
+    "portfolio_monitoring": {
+      "real_time_pnl": true,
+      "position_health_check": true,
+      "margin_usage_monitor": true,
+      "correlation_analysis": true,
+      "diversification_check": true,
+      "performance_analytics": true
+    },
+    "safety_systems": {
+      "paper_trading_mode": true,
+      "circuit_breakers": true,
+      "automatic_stop_loss": true,
+      "position_size_limits": true,
+      "api_rate_limiting": true,
+      "error_handling": "comprehensive"
+    }
+  },
+  "implementation_phases": {
+    "phase_1": {
+      "name": "Core Infrastructure",
+      "tasks": [
+        "Setup BitUnix API client with all endpoints",
+        "Implement authentication and signature generation",
+        "Create basic risk management engine",
+        "Setup environment and configuration"
+      ],
+      "estimated_time": "3-5 days"
+    },
+    "phase_2": {
+      "name": "Market Analysis",
+      "tasks": [
+        "Implement technical indicators",
+        "Create conservative signal generation",
+        "Setup market data feeds",
+        "Build volatility and trend analysis"
+      ],
+      "estimated_time": "4-6 days"
+    },
+    "phase_3": {
+      "name": "Portfolio Management",
+      "tasks": [
+        "Real-time position monitoring",
+        "Portfolio risk calculation",
+        "Performance analytics",
+        "Automated stop-loss management"
+      ],
+      "estimated_time": "3-4 days"
+    },
+    "phase_4": {
+      "name": "Web Dashboard",
+      "tasks": [
+        "Flask web application",
+        "Real-time dashboard interface",
+        "Risk management controls",
+        "Signal display and management"
+      ],
+      "estimated_time": "4-5 days"
+    },
+    "phase_5": {
+      "name": "Safety & Testing",
+      "tasks": [
+        "Emergency stop systems",
+        "Paper trading implementation",
+        "Comprehensive testing",
+        "Error handling and logging"
+      ],
+      "estimated_time": "3-4 days"
+    }
+  },
+  "code_templates": {
+    "bitunix_client_template": {
+      "file": "bitunix_client.py",
+      "key_methods": [
+        "generate_signature",
+        "make_request",
+        "get_account_balance",
+        "place_conservative_order",
+        "set_stop_loss",
+        "get_market_data",
+        "monitor_positions"
+      ]
+    },
+    "risk_manager_template": {
+      "file": "risk_manager.py", 
+      "key_methods": [
+        "validate_trade_parameters",
+        "calculate_position_size",
+        "check_daily_limits",
+        "monitor_portfolio_risk",
+        "trigger_emergency_stop"
+      ]
+    },
+    "signal_analyzer_template": {
+      "file": "signal_analyzer.py",
+      "key_methods": [
+        "analyze_market_conditions",
+        "generate_conservative_signals",
+        "calculate_risk_reward",
+        "validate_signal_quality"
+      ]
+    }
+  },
+  "testing_protocol": {
+    "paper_trading": {
+      "duration": "minimum_2_weeks",
+      "test_scenarios": [
+        "trending_markets",
+        "sideways_markets", 
+        "volatile_conditions",
+        "low_liquidity_periods"
+      ]
+    },
+    "live_testing": {
+      "initial_capital": "$50_max",
+      "position_sizes": "micro_positions",
+      "monitoring": "continuous",
+      "performance_review": "weekly"
+    }
+  },
+  "documentation": {
+    "setup_guide": "Step-by-step setup instructions",
+    "api_reference": "Complete API endpoint documentation",
+    "risk_management_guide": "Conservative trading principles",
+    "troubleshooting": "Common issues and solutions",
+    "performance_optimization": "System optimization tips"
+  },
+  "compliance_and_safety": {
+    "rate_limiting": "Respect BitUnix API limits",
+    "error_handling": "Comprehensive error management",
+    "logging": "Detailed system and trade logging",
+    "security": "Secure API key management",
+    "backup_systems": "Redundant safety mechanisms"
+  }
+}

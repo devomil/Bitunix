@@ -1,0 +1,200 @@
+Phase 3: Market Analysis Module
+3.1 Technical Indicators (indicators.py)
+pythonimport pandas as pd
+import numpy as np
+
+class ConservativeIndicators:
+    @staticmethod
+    def calculate_atr(high, low, close, period=14):
+        """Average True Range for volatility"""
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        return tr.rolling(window=period).mean()
+        
+    @staticmethod
+    def rsi(close, period=14):
+        """RSI for overbought/oversold levels"""
+        delta = close.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+        
+    @staticmethod
+    def bollinger_bands(close, period=20, std_dev=2):
+        """Bollinger Bands for trend analysis"""
+        sma = close.rolling(window=period).mean()
+        std = close.rolling(window=period).std()
+        upper = sma + (std * std_dev)
+        lower = sma - (std * std_dev)
+        return upper, sma, lower
+3.2 Conservative Signal Generator (signals.py)
+pythonclass ConservativeSignals:
+    def __init__(self, risk_manager):
+        self.risk_manager = risk_manager
+        
+    def analyze_market_conditions(self, data):
+        """Only suggest trades in favorable conditions"""
+        conditions = {
+            'trend_clear': self.check_trend_clarity(data),
+            'volatility_manageable': self.check_volatility(data),
+            'volume_adequate': self.check_volume(data),
+            'risk_reward_favorable': self.check_risk_reward(data)
+        }
+        return conditions
+        
+    def generate_conservative_signal(self, symbol_data):
+        """Generate only high-confidence, low-risk signals"""
+        signal = {
+            'symbol': symbol_data['symbol'],
+            'direction': None,
+            'confidence': 0,
+            'suggested_leverage': 1,  # Default to 1x
+            'stop_loss': None,
+            'take_profit': None,
+            'risk_reward_ratio': 0
+        }
+        
+        # Only generate signals with >70% confidence
+        # and minimum 2:1 risk-reward ratio
+        return signal
+Phase 4: Portfolio Monitor
+4.1 Position Tracker (portfolio.py)
+pythonclass PortfolioMonitor:
+    def __init__(self, api_client, risk_manager):
+        self.api_client = api_client
+        self.risk_manager = risk_manager
+        self.positions = {}
+        
+    def monitor_positions(self):
+        """Continuously monitor open positions"""
+        for position in self.get_open_positions():
+            self.check_stop_loss(position)
+            self.check_take_profit(position)
+            self.monitor_drawdown(position)
+            
+    def calculate_portfolio_risk(self):
+        """Ensure total portfolio risk stays under limits"""
+        total_risk = sum(pos['risk_amount'] for pos in self.positions.values())
+        balance = self.api_client.get_account_balance()
+        return (total_risk / balance) * 100
+        
+    def suggest_position_adjustments(self):
+        """Suggest reducing positions if risk too high"""
+        if self.calculate_portfolio_risk() > 5:  # 5% max total risk
+            return "Consider reducing position sizes"
+        return "Portfolio risk acceptable"
+Phase 5: Web Interface
+5.1 Flask Dashboard (app.py)
+pythonfrom flask import Flask, render_template, jsonify
+from apscheduler.schedulers.background import BackgroundScheduler
+
+app = Flask(__name__)
+
+@app.route('/')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/api/portfolio-status')
+def portfolio_status():
+    # Return current portfolio health
+    return jsonify({
+        'total_balance': portfolio.get_balance(),
+        'active_positions': len(portfolio.positions),
+        'total_risk_percent': portfolio.calculate_portfolio_risk(),
+        'daily_pnl': portfolio.get_daily_pnl()
+    })
+
+@app.route('/api/conservative-signals')
+def get_signals():
+    # Return only high-confidence, low-risk signals
+    signals = signal_generator.get_conservative_signals()
+    return jsonify(signals)
+5.2 Dashboard Template (templates/dashboard.html)
+html<!DOCTYPE html>
+<html>
+<head>
+    <title>Conservative Crypto Risk Manager</title>
+    <style>
+        .risk-low { color: green; }
+        .risk-medium { color: orange; }
+        .risk-high { color: red; }
+        .signal-card { border: 1px solid #ccc; margin: 10px; padding: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Portfolio Risk Dashboard</h1>
+    
+    <div id="portfolio-summary">
+        <h2>Portfolio Health</h2>
+        <div id="balance">Balance: Loading...</div>
+        <div id="risk-level">Risk Level: Loading...</div>
+        <div id="active-positions">Active Positions: Loading...</div>
+    </div>
+    
+    <div id="conservative-signals">
+        <h2>Conservative Trade Suggestions</h2>
+        <div id="signals-container"></div>
+    </div>
+    
+    <script>
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(updateDashboard, 30000);
+        
+        function updateDashboard() {
+            fetch('/api/portfolio-status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('balance').textContent = `Balance: $${data.total_balance}`;
+                    document.getElementById('risk-level').textContent = `Risk Level: ${data.total_risk_percent}%`;
+                    document.getElementById('active-positions').textContent = `Active Positions: ${data.active_positions}`;
+                });
+        }
+    </script>
+</body>
+</html>
+Phase 6: Safety Features
+6.1 Emergency Stop System
+pythonclass EmergencyStop:
+    def __init__(self, api_client):
+        self.api_client = api_client
+        
+    def check_drawdown_limits(self, daily_loss_percent):
+        """Stop trading if daily loss exceeds 3%"""
+        if daily_loss_percent > 3:
+            self.halt_all_trading()
+            self.send_alert("Emergency stop triggered - daily loss limit reached")
+            
+    def monitor_system_health(self):
+        """Monitor API connectivity and system status"""
+        if not self.api_client.test_connection():
+            self.send_alert("API connection lost - manual intervention required")
+6.2 Conservative Trade Recommendations
+pythonCONSERVATIVE_PAIRS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT']  # Stick to major pairs
+MAX_DAILY_TRADES = 3  # Limit overtrading
+MIN_RISK_REWARD = 2.0  # Minimum 2:1 risk-reward ratio
+
+def get_conservative_recommendations():
+    """Return only the safest trade setups"""
+    recommendations = []
+    
+    for pair in CONSERVATIVE_PAIRS:
+        signal = analyze_pair_conservatively(pair)
+        if signal['confidence'] > 75 and signal['risk_reward'] >= 2.0:
+            signal['suggested_leverage'] = min(signal['suggested_leverage'], 3)  # Cap at 3x
+            recommendations.append(signal)
+    
+    return recommendations[:2]  # Maximum 2 recommendations per session
+Phase 7: Risk Management Rules
+Key Safety Parameters:
+
+Maximum Leverage: 5x (recommended 1-3x)
+Risk Per Trade: 1-2% of account balance
+Daily Loss Limit: 3% of account balance
+Maximum Open Positions: 3 simultaneous trades
+Required Risk-Reward: Minimum 2:1 ratio
+Stop Loss: Mandatory on every trade
+Trading Hours: Avoid low-liquidity periods
+

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Backtesting - Conservative Crypto Risk Manager</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .backtest-card {
+            background: var(--bs-dark);
+            border: 1px solid var(--bs-secondary);
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .preset-card {
+            background: var(--bs-gray-800);
+            border: 1px solid var(--bs-gray-600);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .preset-card:hover {
+            border-color: var(--bs-primary);
+            transform: translateY(-2px);
+        }
+        .preset-card.selected {
+            border-color: var(--bs-primary);
+            background: var(--bs-primary-bg-subtle);
+        }
+        .metric-card {
+            background: var(--bs-gray-800);
+            border: 1px solid var(--bs-gray-600);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+        .positive { color: var(--bs-success); }
+        .negative { color: var(--bs-danger); }
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+        .trade-row.profitable {
+            background-color: rgba(25, 135, 84, 0.1);
+        }
+        .trade-row.loss {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+    <nav class="navbar navbar-dark bg-dark border-bottom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-shield-alt text-warning"></i>
+                Conservative Crypto Risk Manager
+            </a>
+            <div class="d-flex gap-3">
+                <a href="/" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-chart-line"></i> Live Dashboard
+                </a>
+                <a href="/backtest" class="btn btn-primary btn-sm">
+                    <i class="fas fa-history"></i> Backtesting
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Configuration Panel -->
+            <div class="col-md-4">
+                <div class="backtest-card">
+                    <div class="card-header bg-primary">
+                        <h5 class="mb-0"><i class="fas fa-cog"></i> Backtest Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Preset Selection -->
+                        <div class="mb-4">
+                            <h6>Quick Start Presets</h6>
+                            <div id="presets-container">
+                                <!-- Presets will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Custom Configuration -->
+                        <div class="mb-3">
+                            <label class="form-label">Initial Balance (USDT)</label>
+                            <input type="number" id="initial-balance" class="form-control" value="1000" min="100" max="10000">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Test Period (Days)</label>
+                            <input type="number" id="test-days" class="form-control" value="14" min="3" max="90">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Trading Pairs</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="btc" checked>
+                                        <label class="form-check-label" for="btc">BTC/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="eth" checked>
+                                        <label class="form-check-label" for="eth">ETH/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="sol">
+                                        <label class="form-check-label" for="sol">SOL/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="doge" checked>
+                                        <label class="form-check-label" for="doge">DOGE/USDT</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="uni" checked>
+                                        <label class="form-check-label" for="uni">UNI/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matic">
+                                        <label class="form-check-label" for="matic">MATIC/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="mana" checked>
+                                        <label class="form-check-label" for="mana">MANA/USDT</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="aave">
+                                        <label class="form-check-label" for="aave">AAVE/USDT</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="run-backtest" class="btn btn-success w-100">
+                            <i class="fas fa-play"></i> Run Backtest
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Strategy Info -->
+                <div class="backtest-card">
+                    <div class="card-header bg-info">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Conservative Strategy</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li><i class="fas fa-check text-success"></i> Max 5x leverage</li>
+                            <li><i class="fas fa-check text-success"></i> 1.5% risk per trade</li>
+                            <li><i class="fas fa-check text-success"></i> 2:1 risk/reward ratio</li>
+                            <li><i class="fas fa-check text-success"></i> 75%+ signal confidence</li>
+                            <li><i class="fas fa-check text-success"></i> Maximum 3 positions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="col-md-8">
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Running backtest...</span>
+                    </div>
+                    <p class="mt-2">Running backtest simulation...</p>
+                </div>
+
+                <!-- Results -->
+                <div id="results-container" style="display: none;">
+                    <!-- Performance Metrics -->
+                    <div class="backtest-card">
+                        <div class="card-header bg-success">
+                            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Performance Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="metrics-row">
+                                <!-- Metrics will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Chart -->
+                    <div class="backtest-card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-chart-line"></i> Portfolio Value Over Time</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="performance-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trade History -->
+                    <div class="backtest-card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-list"></i> Trade History</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Direction</th>
+                                            <th>Entry</th>
+                                            <th>Exit</th>
+                                            <th>P&L</th>
+                                            <th>P&L %</th>
+                                            <th>Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="trades-table">
+                                        <!-- Trades will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- No Results State -->
+                <div id="no-results" style="display: block;">
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Ready to Test Your Strategy</h4>
+                        <p class="text-muted">Configure your backtest parameters and click "Run Backtest" to validate your conservative trading strategy.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let performanceChart = null;
+        let currentPreset = null;
+
+        // Load presets on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPresets();
+        });
+
+        // Load backtest presets
+        async function loadPresets() {
+            try {
+                const response = await fetch('/api/backtest_presets');
+                const presets = await response.json();
+                
+                const container = document.getElementById('presets-container');
+                container.innerHTML = '';
+                
+                Object.entries(presets).forEach(([key, preset]) => {
+                    const card = document.createElement('div');
+                    card.className = 'preset-card p-3 mb-2';
+                    card.onclick = () => selectPreset(key, preset);
+                    
+                    card.innerHTML = `
+                        <h6 class="mb-1">${preset.name}</h6>
+                        <small class="text-muted">${preset.description}</small>
+                        <div class="mt-2">
+                            <small><i class="fas fa-clock"></i> ${preset.days} days</small>
+                            <small class="ms-2"><i class="fas fa-dollar-sign"></i> $${preset.initial_balance}</small>
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading presets:', error);
+            }
+        }
+
+        // Select a preset
+        function selectPreset(key, preset) {
+            // Remove previous selection
+            document.querySelectorAll('.preset-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked card
+            event.target.closest('.preset-card').classList.add('selected');
+            
+            // Update form fields
+            document.getElementById('initial-balance').value = preset.initial_balance;
+            document.getElementById('test-days').value = preset.days;
+            
+            // Update symbol checkboxes
+            const symbolMap = {
+                'BTC/USDT': 'btc', 'ETH/USDT': 'eth', 'SOL/USDT': 'sol', 'ADA/USDT': 'ada',
+                'DOGE/USDT': 'doge', 'SHIB/USDT': 'shib', 'PEPE/USDT': 'pepe', 'FLOKI/USDT': 'floki',
+                'UNI/USDT': 'uni', 'AAVE/USDT': 'aave', 'COMP/USDT': 'comp', 'MKR/USDT': 'mkr',
+                'MATIC/USDT': 'matic', 'ARB/USDT': 'arb', 'OP/USDT': 'op',
+                'AXS/USDT': 'axs', 'SAND/USDT': 'sand', 'MANA/USDT': 'mana'
+            };
+            
+            // Uncheck all first
+            Object.values(symbolMap).forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) checkbox.checked = false;
+            });
+            
+            // Check symbols in preset
+            preset.symbols.forEach(symbol => {
+                const checkboxId = symbolMap[symbol];
+                const checkbox = document.getElementById(checkboxId);
+                if (checkbox) checkbox.checked = true;
+            });
+            
+            currentPreset = key;
+        }
+
+        // Get selected symbols
+        function getSelectedSymbols() {
+            const symbolMap = {
+                'btc': 'BTC/USDT', 'eth': 'ETH/USDT', 'sol': 'SOL/USDT', 'ada': 'ADA/USDT',
+                'doge': 'DOGE/USDT', 'shib': 'SHIB/USDT', 'pepe': 'PEPE/USDT', 'floki': 'FLOKI/USDT',
+                'uni': 'UNI/USDT', 'aave': 'AAVE/USDT', 'comp': 'COMP/USDT', 'mkr': 'MKR/USDT',
+                'matic': 'MATIC/USDT', 'arb': 'ARB/USDT', 'op': 'OP/USDT',
+                'axs': 'AXS/USDT', 'sand': 'SAND/USDT', 'mana': 'MANA/USDT'
+            };
+            
+            const selected = [];
+            Object.entries(symbolMap).forEach(([id, symbol]) => {
+                const checkbox = document.getElementById(id);
+                if (checkbox && checkbox.checked) {
+                    selected.push(symbol);
+                }
+            });
+            
+            return selected;
+        }
+
+        // Run backtest
+        document.getElementById('run-backtest').addEventListener('click', async function() {
+            const symbols = getSelectedSymbols();
+            
+            if (symbols.length === 0) {
+                alert('Please select at least one trading pair.');
+                return;
+            }
+            
+            const config = {
+                symbols: symbols,
+                days: parseInt(document.getElementById('test-days').value),
+                initial_balance: parseFloat(document.getElementById('initial-balance').value)
+            };
+            
+            // Show loading state
+            document.getElementById('no-results').style.display = 'none';
+            document.getElementById('results-container').style.display = 'none';
+            document.getElementById('loading-state').style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/run_backtest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    throw new Error(data.error || 'Backtest failed');
+                }
+                
+            } catch (error) {
+                console.error('Error running backtest:', error);
+                alert('Error running backtest: ' + error.message);
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('no-results').style.display = 'block';
+            }
+        });
+
+        // Display backtest results
+        function displayResults(data) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('results-container').style.display = 'block';
+            
+            // Display metrics
+            displayMetrics(data.results);
+            
+            // Display chart
+            displayChart(data.daily_balances, data.results.initial_balance);
+            
+            // Display trades
+            displayTrades(data.trades);
+        }
+
+        // Display performance metrics
+        function displayMetrics(results) {
+            const metricsRow = document.getElementById('metrics-row');
+            
+            const metrics = [
+                { label: 'Total Return', value: `${results.total_return_pct}%`, class: results.total_return_pct >= 0 ? 'positive' : 'negative' },
+                { label: 'Win Rate', value: `${results.win_rate}%`, class: results.win_rate >= 50 ? 'positive' : 'negative' },
+                { label: 'Max Drawdown', value: `${results.max_drawdown_pct}%`, class: 'negative' },
+                { label: 'Sharpe Ratio', value: results.sharpe_ratio, class: results.sharpe_ratio >= 1 ? 'positive' : 'negative' },
+                { label: 'Total Trades', value: results.total_trades, class: '' },
+                { label: 'Final Balance', value: `$${results.final_balance}`, class: results.final_balance >= 1000 ? 'positive' : 'negative' }
+            ];
+            
+            metricsRow.innerHTML = metrics.map(metric => `
+                <div class="col-md-4 col-sm-6 mb-3">
+                    <div class="metric-card">
+                        <div class="h5 mb-1 ${metric.class}">${metric.value}</div>
+                        <div class="text-muted small">${metric.label}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Display performance chart
+        function displayChart(dailyBalances, initialBalance) {
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            
+            // Destroy existing chart
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+            
+            const labels = dailyBalances.map(entry => {
+                const date = new Date(entry.timestamp);
+                return date.toLocaleDateString();
+            });
+            
+            const balances = dailyBalances.map(entry => entry.balance);
+            
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Portfolio Value',
+                        data: balances,
+                        borderColor: 'rgb(13, 202, 240)',
+                        backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }, {
+                        label: 'Initial Balance',
+                        data: new Array(labels.length).fill(initialBalance),
+                        borderColor: 'rgba(108, 117, 125, 0.5)',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Display trade history
+        function displayTrades(trades) {
+            const tableBody = document.getElementById('trades-table');
+            
+            if (trades.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No trades executed</td></tr>';
+                return;
+            }
+            
+            tableBody.innerHTML = trades.map(trade => {
+                const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+                const rowClass = trade.pnl >= 0 ? 'trade-row profitable' : 'trade-row loss';
+                
+                return `
+                    <tr class="${rowClass}">
+                        <td>${trade.symbol}</td>
+                        <td>
+                            <span class="badge ${trade.direction === 'long' ? 'bg-success' : 'bg-danger'}">
+                                ${trade.direction.toUpperCase()}
+                            </span>
+                        </td>
+                        <td>$${trade.entry_price.toFixed(4)}</td>
+                        <td>$${trade.exit_price.toFixed(4)}</td>
+                        <td class="${pnlClass}">$${trade.pnl.toFixed(2)}</td>
+                        <td class="${pnlClass}">${trade.pnl_pct.toFixed(2)}%</td>
+                        <td>
+                            <small class="text-muted">${trade.reason.replace('_', ' ')}</small>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conservative Crypto Risk Manager</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-shield-alt me-2"></i>Conservative Crypto Risk Manager
+            </a>
+            <div class="d-flex align-items-center">
+                <span id="last-update" class="text-muted small me-3">Last update: --</span>
+                <div id="connection-status" class="badge bg-success">
+                    <i class="fas fa-shield-check me-1"></i>Connected - Real Data
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <!-- Emergency Stop Alert -->
+        <div id="emergency-alert" class="alert alert-danger d-none" role="alert">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Emergency Stop Active:</strong> <span id="emergency-reason">Unknown reason</span>
+                </div>
+                <button type="button" class="btn btn-outline-light btn-sm" onclick="resetEmergencyStop()">
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Enhanced Portfolio Overview -->
+        <div class="portfolio-overview">
+            <div class="metric-card balance-card">
+                <div class="metric-header">
+                    <h3>Total Balance</h3>
+                    <div class="connection-status">
+                        <span class="status-dot online"></span>
+                        <span>Live</span>
+                    </div>
+                </div>
+                <div class="metric-value">
+                    <span class="currency">$</span>
+                    <span class="amount" id="total-balance-enhanced">0.00</span>
+                </div>
+                <div class="metric-change">
+                    <span class="change-indicator" id="balance-change">
+                        <i class="fas fa-arrow-up"></i>
+                        --
+                    </span>
+                </div>
+            </div>
+
+            <div class="metric-card pnl-card">
+                <div class="metric-header">
+                    <h3>Daily P&L</h3>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-timeframe="1D">1D</button>
+                        <button type="button" class="btn btn-outline-secondary" data-timeframe="7D">7D</button>
+                        <button type="button" class="btn btn-outline-secondary" data-timeframe="30D">30D</button>
+                    </div>
+                </div>
+                <div class="metric-value">
+                    <span class="amount" id="daily-pnl-enhanced">$0.00</span>
+                    <span class="pnl-percentage" id="daily-pnl-percent">(0.00%)</span>
+                </div>
+                <div class="pnl-breakdown">
+                    <div class="realized">Realized: <span id="realized-pnl">$0.00</span></div>
+                    <div class="unrealized">Unrealized: <span id="unrealized-pnl">$0.00</span></div>
+                </div>
+            </div>
+
+            <div class="metric-card risk-card">
+                <div class="metric-header">
+                    <h3>Portfolio Risk</h3>
+                    <div class="risk-tooltip" title="Current risk exposure">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                </div>
+                <div class="risk-gauge">
+                    <svg class="gauge-svg" width="120" height="120">
+                        <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                        <circle class="gauge-fill" cx="60" cy="60" r="50" id="risk-gauge-fill"></circle>
+                    </svg>
+                    <div class="gauge-value" id="risk-gauge-value">0.0%</div>
+                </div>
+                <div class="risk-status safe" id="risk-status">SAFE ZONE</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <h3>Active Positions</h3>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/backtest" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-history"></i>
+                        </a>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="triggerEmergencyStop()">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="metric-value">
+                    <span class="amount" id="active-positions-enhanced">0</span>
+                </div>
+                <div class="metric-change">
+                    <span class="change-indicator" id="positions-status">
+                        <i class="fas fa-shield-check"></i>
+                        Conservative Mode
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Metrics Chart -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-area me-2"></i>Risk Metrics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="riskChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Conservative Signals -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bullseye me-2"></i>Conservative Trade Signals
+                        </h5>
+                        <span class="badge bg-info">High Confidence Only</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="signals-filters mb-3">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" data-filter="all">All Signals</button>
+                                <button type="button" class="btn btn-outline-secondary" data-filter="high">High Confidence</button>
+                                <button type="button" class="btn btn-outline-secondary" data-filter="long">Long Only</button>
+                                <button type="button" class="btn btn-outline-secondary" data-filter="short">Short Only</button>
+                            </div>
+                        </div>
+                        <div id="signals-container">
+                            <div class="text-center text-muted py-4" id="signals-placeholder">
+                                <i class="fas fa-search fa-2x mb-3"></i>
+                                <div>No conservative signals available</div>
+                                <small>Waiting for high-confidence opportunities...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Management Panel -->
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>Risk Management
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <small class="text-muted">Safety Limits</small>
+                            <div class="mt-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Max Leverage:</span>
+                                    <span class="fw-bold">5x</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Risk Per Trade:</span>
+                                    <span class="fw-bold">1-2%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Daily Loss Limit:</span>
+                                    <span class="fw-bold">3%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Max Positions:</span>
+                                    <span class="fw-bold">3</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">Current Status</small>
+                            <div class="mt-2" id="risk-status">
+                                <div class="alert alert-success py-2">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    All limits within safe range
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <small class="text-muted">Suggestions</small>
+                            <div class="mt-2" id="suggestions-container">
+                                <div class="text-muted small">No suggestions at this time</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Positions -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>Active Positions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="positions-actions mb-3">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-warning" onclick="adjustAllStops()">
+                                    <i class="fas fa-adjust me-1"></i>Adjust Stops
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="closeAllPositions()">
+                                    <i class="fas fa-times-circle me-1"></i>Close All
+                                </button>
+                            </div>
+                        </div>
+                        <div id="positions-container">
+                            <div class="text-center text-muted py-4" id="positions-placeholder">
+                                <i class="fas fa-inbox fa-2x mb-3"></i>
+                                <h6>No Active Positions</h6>
+                                <small>Your conservative approach keeps you safe when conditions aren't optimal.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <!-- Notification Container -->
+    <div class="notification-container" id="notifications"></div>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
