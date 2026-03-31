@@ -1,0 +1,118 @@
+name: Automated Code Review
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Run code review
+      id: review
+      run: |
+        python scripts/code_review.py
+        echo "Review complete"
+    
+    - name: Upload review report
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-review-report
+        path: code_review_report.json
+        retention-days: 30
+    
+    - name: Check for critical issues
+      run: |
+        python -c "
+        import json
+        import sys
+        
+        with open('code_review_report.json') as f:
+            report = json.load(f)
+        
+        critical = report['summary']['CRITICAL']
+        high = report['summary']['HIGH']
+        
+        print(f'\n📊 Review Summary:')
+        print(f'  🔴 Critical: {critical}')
+        print(f'  🟠 High: {high}')
+        print(f'  🟡 Medium: {report[\"summary\"][\"MEDIUM\"]}')
+        print(f'  ⚪ Low: {report[\"summary\"][\"LOW\"]}')
+        
+        if critical > 0:
+            print(f'\n❌ Build failed: {critical} critical security or quality issues found')
+            print('Review the detailed report and fix critical issues before merging.')
+            sys.exit(1)
+        elif high > 5:
+            print(f'\n⚠️  Warning: {high} high-severity issues found')
+            print('Consider addressing these before merging.')
+            # Uncomment to fail on too many high-severity issues
+            # sys.exit(1)
+        else:
+            print('\n✅ No critical issues found')
+        "
+    
+    - name: Comment PR with summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('code_review_report.json', 'utf8'));
+          
+          const critical = report.summary.CRITICAL || 0;
+          const high = report.summary.HIGH || 0;
+          const medium = report.summary.MEDIUM || 0;
+          const low = report.summary.LOW || 0;
+          
+          const criticalFindings = report.findings.filter(f => f.severity === 'CRITICAL').slice(0, 5);
+          const highFindings = report.findings.filter(f => f.severity === 'HIGH').slice(0, 5);
+          
+          let body = `## 🔍 Automated Code Review\n\n`;
+          body += `**Files analyzed:** ${report.metadata.files_analyzed} | `;
+          body += `**Lines of code:** ${report.metadata.lines_of_code}\n\n`;
+          body += `### Summary\n\n`;
+          body += `| Severity | Count |\n`;
+          body += `|----------|-------|\n`;
+          body += `| 🔴 Critical | ${critical} |\n`;
+          body += `| 🟠 High | ${high} |\n`;
+          body += `| 🟡 Medium | ${medium} |\n`;
+          body += `| ⚪ Low | ${low} |\n\n`;
+          
+          if (critical > 0) {
+            body += `### 🔴 Critical Issues (Top 5)\n\n`;
+            criticalFindings.forEach((f, i) => {
+              body += `${i + 1}. **${f.category}** - \`${f.file}:${f.line}\`\n`;
+              body += `   - ${f.issue}\n`;
+              body += `   - ➜ ${f.recommendation}\n\n`;
+            });
+          }
+          
+          if (high > 0) {
+            body += `### 🟠 High Severity Issues (Top 5)\n\n`;
+            highFindings.forEach((f, i) => {
+              body += `${i + 1}. **${f.category}** - \`${f.file}:${f.line}\`\n`;
+              body += `   - ${f.issue}\n`;
+              body += `   - ➜ ${f.recommendation}\n\n`;
+            });
+          }
+          
+          body += `\n📄 [Download full report](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
